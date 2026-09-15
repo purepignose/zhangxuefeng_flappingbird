@@ -1,0 +1,112 @@
+#include "Application.h"
+#include <iostream>
+
+Application::Application():     //创建窗口
+    mainwindow_(sf::VideoMode(1920, 1080), L"千恋万花", sf::Style::Default)
+{
+
+    mainwindow_.setFramerateLimit(60);
+
+    if(font_.loadFromFile("assets/fonts/fonts1.ttf")){
+        std::cout<<"Find Font"<<'\n';
+    }
+
+    text_.setFont(font_);   //与形状和精灵大差不差，看懂应该不难
+    text_.setString(L"拿起刀就无法拥抱你，\n放下刀就无法保护你");
+    text_.setCharacterSize(80);
+    sf::FloatRect bounds_ = text_.getLocalBounds();
+    text_.setOrigin(bounds_.getPosition() + bounds_.getSize()/2.f);
+    text_.setPosition(960,540);
+    text_.setRotation(10);
+    text_.setScale(1.01f,1.01f);
+    text_.setFillColor(sf::Color::Red);
+    text_.setStyle(sf::Text::Bold | sf::Text::Italic);   //文字 效果，如加粗，斜体，下划线，删除线
+    text_.setStyle(sf::Text::Underlined | sf::Text::StrikeThrough);
+    text_.setLetterSpacing(2);
+    text_.setLineSpacing(1.5f);
+    text_.setOutlineColor(sf::Color::Blue);
+    text_.setOutlineThickness(5);
+
+
+    sf::Mouse::setPosition({960,540},mainwindow_);  //设置开局鼠标位置
+
+}
+
+bool Application::IsRunning() const    //判断是否运行
+{
+    return mainwindow_.isOpen();
+}
+
+void Application::Tick(){    //主循环
+    ProcessEvents();
+    Update();
+    Render();
+}
+
+void Application::ProcessEvents()    //处理事件
+{
+    sf::Event event;
+    while(mainwindow_.pollEvent(event)){ 
+        HandleEvent(event, mainwindow_);
+        }
+}
+
+void Application::Update(){     //上传
+
+}
+
+void Application::Render(){    //刷新
+    mainwindow_.clear();
+
+    mainwindow_.draw(text_);
+
+    mainwindow_.display();
+}
+
+void Application::HandleResize(const sf::Event& event) {      //实现并检测缩放窗口
+    std::cout << "new size " << event.size.width << ", " << event.size.height << '\n';
+}
+
+
+
+void Application::HandleEvent(const sf::Event& event, sf::RenderWindow& window) {
+    switch (event.type) {
+        case sf::Event::Resized:       HandleResize(event);        break;
+        case sf::Event::Closed: window.close(); break;
+        default: break;  // 不关心的事件类型直接忽略
+    }
+}
+
+
+
+头文件里
+#pragma once
+
+#include <SFML/Graphics.hpp>
+
+class Application{
+    private:
+        sf::RenderWindow mainwindow_;
+
+        sf::Font font_;
+        sf::Text text_;
+
+    public:
+        Application();
+
+        bool IsRunning() const;
+
+        void Tick();
+
+    private:
+        void HandleResize(const sf::Event& event);
+
+        void HandleEvent(const sf::Event& event, sf::RenderWindow& window);
+
+        
+        void ProcessEvents();
+        void Update();
+        void Render();
+
+
+};

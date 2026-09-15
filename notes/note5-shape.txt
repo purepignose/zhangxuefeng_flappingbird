@@ -1,0 +1,81 @@
+Application.cpp文件中
+#include "Application.h"
+#include <iostream>
+
+Application::Application():     //创建窗口
+    mainwindow_(sf::VideoMode(1920, 1080), L"千恋万花", sf::Style::Default)
+{
+    mainwindow_.setFramerateLimit(60);
+    rectangle_.setSize({200,100});
+    rectangle_.setPosition({100,200});
+    rectangle_.setFillColor(sf::Color::Blue);
+    rectangle_.setOutlineThickness(5);   //设置边框厚度(像素,正数是向外拓展，负数相反)
+    rectangle_.setOutlineColor(sf::Color::Red);   //设置边框颜色
+
+    circle_.setRadius(100);
+    circle_.setPosition({400,200});
+    circle_.setPointCount(100);   //设置绘制圆形点的数量，默认是30
+    circle_.setFillColor(sf::Color(32,231,143,255));  //设置颜色，括号里分别为(R,G,B,不透明度)不透明度不写时默认255，最高255
+
+    polygon_.setPointCount(4);   //手动自定义凸多边形
+    polygon_.setPoint(0,{0,0});
+    polygon_.setPoint(1,{100,0});
+    polygon_.setPoint(2,{120,100});
+    polygon_.setPoint(3,{20,80});
+    polygon_.setPosition({100,600});
+
+}
+void Application::Render(){    //刷新
+    mainwindow_.clear();
+
+    mainwindow_.draw(rectangle_);
+    mainwindow_.draw(circle_);
+    mainwindow_.draw(polygon_);
+
+    mainwindow_.display();
+}
+
+
+Application.h 中
+#pragma once
+
+#include <SFML/Graphics.hpp>
+
+class Application{
+    private:
+        sf::RenderWindow mainwindow_;
+
+        sf::RectangleShape rectangle_;
+        sf::CircleShape circle_;
+        sf::ConvexShape polygon_;
+
+    public:
+        Application();
+
+        bool IsRunning() const;
+
+        void Tick();
+
+    private:
+        void HandleResize(const sf::Event& event);
+
+        void HandleFocus(const sf::Event& event) ;
+
+        void HandleKeyPressed(const sf::Event& event) ;
+
+        void HandleKeyReleased(const sf::Event& event) ;
+
+        void HandleMouseButtonPressed(const sf::Event& event) ;
+
+        void HandleMouseWheelMoved(const sf::Event& event) ;
+
+        void HandleEvent(const sf::Event& event, sf::RenderWindow& window);
+
+        void ProcessEvents();
+
+        void Update();
+
+        void Render();
+
+
+};

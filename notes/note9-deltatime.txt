@@ -1,0 +1,222 @@
+#include "Application.h"
+#include <iostream>
+
+Application::Application():     //创建窗口
+    mainwindow_(sf::VideoMode(1920, 1080), L"千恋万花", sf::Style::Default)
+{
+
+    mainwindow_.setFramerateLimit(60);
+
+    mainwindow_.setKeyRepeatEnabled(false);   
+    //禁用长按按键等于多次触发按键，让void Application::HandleKeyPressed函数只能检测一次按下，而不是长按就一直检测
+    sf::Mouse::setPosition({960,540},mainwindow_);  //设置开局鼠标位置
+
+    //texture_wxj_.loadFromFile("assets/charactors/wxj.png");     //设置纹理，实际这一句可删除，因为判断存在部分就已经设置了
+    if(!texture_wxj_.loadFromFile("assets/charactors/wxj.png")){      //判断纹理文件是否存在
+        std::cout<<"not found wxj"<<'\n';
+    }
+
+    if(!texture_bg1_.loadFromFile("assets/backgrounds/bg1.png")){
+        std::cout<<"not found bg1"<<"\n";
+    }
+
+    texture_wxj_.setSmooth(true);     //设置纹理为平滑
+
+    rectangle_bg_.setSize({1980,1080});
+    rectangle_bg_.setPosition({0,0});
+    rectangle_bg_.setTexture(&texture_bg1_);
+
+    wxj_.setSize({320,320});
+    wxj_.setPosition({900,600});
+    wxj_.setTexture(&texture_wxj_);      //设置纹理
+    wxj_.setFillColor(sf::Color::Blue);     //设置颜色，会像加了某色滤镜一样
+    //zmx_.setTexture(nullptr);    //删除形状纹理
+    wxj_.setOrigin(wxj_.getSize()/2.0f);  //原点设在中心
+    wxj_.move({100,100});   //位置变化
+    wxj_.setRotation(45);   //旋转，设为x度，正数为逆时针
+    wxj_.rotate(45);    //旋转，再旋转x度
+
+    sprite_wxj_.setTexture(texture_wxj_);    //设置精灵
+    sprite_wxj_.setPosition(320,760);    
+    sprite_wxj_.setScale({2,2});      //缩放精灵
+    //注意，精灵无法清空纹理，因为精灵不能用指针，用的是引用，引用不能为空
+    sprite_wxj_.setOrigin(wxj_.getSize()/2.0f);
+
+
+    wxj1_.setSize({320,320});
+    wxj1_.setPosition({160,160});
+    wxj1_.setTexture(&texture_wxj_);
+    wxj1_.setOrigin(wxj_.getSize()/2.0f);  
+
+    wxj2_.setSize({320,320});
+    wxj2_.setPosition({800,160});
+    wxj2_.setTexture(&texture_wxj_);  
+    wxj2_.setOrigin(wxj_.getSize()/2.0f); 
+
+    wxj3_.setSize({320,320});
+    wxj3_.setPosition({1440,160});
+    wxj3_.setTexture(&texture_wxj_);
+    wxj3_.setOrigin(wxj_.getSize()/2.0f);
+}
+
+bool Application::IsRunning() const    //判断是否运行
+{
+    return mainwindow_.isOpen();
+}
+
+void Application::Tick(){    //主循环
+    ProcessEvents();
+    Update();
+    Render();
+}
+
+void Application::ProcessEvents()    //处理事件
+{
+    sf::Event event;
+    while(mainwindow_.pollEvent(event)){ 
+        HandleEvent(event, mainwindow_);
+        }
+}
+
+void Application::Update(){     //上传
+
+    wxj3_.scale({1.01f,1.01f});   //每帧扩大1.01倍
+    sf::Vector2f wxj3_scale = wxj3_.getScale();   //检测并输出倍率
+    //std::cout << wxj3_scale.x << ", " << wxj3_scale.y << '\n';
+
+    //sf::Time elapsed = clock_.getElapsedTime();    //普通的输出时间
+    //float seconds = elapsed.asSeconds();
+    //std::cout<<"Time is"<<seconds<<'\n';
+
+    //float seconds;        //有暂停的情况下输出时间
+    //if (clock_paused_) {
+    //    seconds = paused_time_;
+    //} else {
+    //    seconds = paused_time_ + clock_.getElapsedTime().asSeconds();
+    //}
+    //std::cout << "Time is " << seconds << '\n';
+
+    //if (seconds >= 5){
+    //    std::cout<<"event"<<'\n';
+    //    clock_.restart();
+    //    paused_time_ = 0.f;
+    //    clock_paused_ = false;
+    //}
+
+    float deltaTime = clock_.restart().asSeconds();   //每一帧的时间
+    std::cout<<deltaTime<<'\n'; 
+
+    //以下是通过deltatime让形状或者精灵的变化不与帧率，只与时间有关
+    float speed_wxj1_ = 300;
+    wxj1_.move({speed_wxj1_*deltaTime,0});
+
+    float rotationSpeed = 45;
+    wxj2_.rotate(rotationSpeed*deltaTime);
+
+    float scaleSpeed = 1+(0.2f*deltaTime);
+    wxj3_.scale({scaleSpeed,scaleSpeed});
+}
+
+void Application::Render(){    //刷新
+    mainwindow_.clear();
+
+    mainwindow_.draw(rectangle_bg_);
+    mainwindow_.draw(wxj_);
+    mainwindow_.draw(sprite_wxj_);
+
+    mainwindow_.draw(wxj1_);
+    mainwindow_.draw(wxj2_);
+    mainwindow_.draw(wxj3_);
+
+    mainwindow_.display();
+}
+
+void Application::HandleResize(const sf::Event& event) {      //实现并检测缩放窗口
+    std::cout << "new size " << event.size.width << ", " << event.size.height << '\n';
+}
+
+
+void Application::HandleKeyPressedSpace(const sf::Event& event) {   //检测space按键按下
+    if (event.key.code == sf::Keyboard::Space) {
+        std::cout << "space\n";
+        clock_.restart();
+        paused_time_ = 0.f;
+        clock_paused_ = false;
+    }
+}
+
+void Application::HandleMousePressed(const sf::Event& event) {   //实现时间暂停和继续
+    if (event.mouseButton.button == sf::Mouse::Left) {
+        std::cout << "left\n";
+        if (!clock_paused_) {
+            clock_paused_ = true;
+            paused_time_ = clock_.getElapsedTime().asSeconds();
+        }
+    }
+    else if (event.mouseButton.button == sf::Mouse::Right) {
+        std::cout << "right\n";
+        if (clock_paused_) {
+            clock_paused_ = false;
+            clock_.restart();
+        }
+    }
+}
+
+
+void Application::HandleEvent(const sf::Event& event, sf::RenderWindow& window) {
+    switch (event.type) {
+        case sf::Event::Resized:       HandleResize(event);        break;
+        case sf::Event::KeyPressed:  HandleKeyPressedSpace(event); break;
+        case sf::Event::Closed: window.close(); break;
+        //case sf::Event::MouseButtonPressed: HandleMousePressed(event); break;
+        default: break;  // 不关心的事件类型直接忽略
+    }
+}
+
+头文件里
+#pragma once
+
+#include <SFML/Graphics.hpp>
+
+class Application{
+    private:
+        sf::RenderWindow mainwindow_;
+
+        sf::Texture texture_wxj_;
+        sf::RectangleShape wxj_;
+        sf::Sprite sprite_wxj_;
+        sf::RectangleShape rectangle_bg_;
+        sf::Texture texture_bg1_;
+
+        sf::RectangleShape wxj1_;
+        sf::RectangleShape wxj2_;
+        sf::RectangleShape wxj3_;
+
+
+        sf::Clock clock_;
+        bool clock_paused_ = false;
+        float paused_time_ = 0.f;
+
+        sf::Clock deltatime_;
+
+    public:
+        Application();
+
+        bool IsRunning() const;
+
+        void Tick();
+
+    private:
+        void HandleResize(const sf::Event& event);
+
+        void HandleEvent(const sf::Event& event, sf::RenderWindow& window);
+
+        void HandleKeyPressedSpace(const sf::Event& event) ;
+        void HandleMousePressed(const sf::Event& event);
+        
+        void ProcessEvents();
+        void Update();
+        void Render();
+
+
+};

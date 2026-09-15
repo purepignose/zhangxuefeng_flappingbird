@@ -1,0 +1,78 @@
+#include <SFML/Graphics.hpp>
+#include <iostream>
+
+
+void HandleResize(const sf::Event& event) {    //调整窗口大小函数，其他note2-event重点操作，函数如下
+    if (event.type == sf::Event::Resized) {
+        std::cout << "new size " << event.size.width << ", " << event.size.height << '\n';
+    }
+}
+
+void HandleFocus(const sf::Event& event) {
+    if (event.type == sf::Event::LostFocus) {
+        std::cout << "Focus Lost\n";
+    }
+    else if (event.type == sf::Event::GainedFocus) {
+        std::cout<<"Focus Gained"<<'\n';
+    }
+}
+
+void HandleKeyPressed(const sf::Event& event) {
+    if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::W) {
+            std::cout << "w\n";
+        }
+    }
+}
+
+void HandleKeyReleased(const sf::Event& event) {
+    if (event.type == sf::Event::KeyReleased) {
+        if (event.key.code == sf::Keyboard::W) {
+            std::cout << "w\n";
+        }
+    }
+}
+
+void HandleMouseButtonPressed(const sf::Event& event) {
+    if (event.type == sf::Event::MouseButtonPressed) {
+        if (event.mouseButton.button == sf::Mouse::Left) {
+            std::cout << "l " << event.mouseButton.x << ", " << event.mouseButton.y << '\n';
+        }
+    }
+}
+
+void HandleMouseWheelMoved(const sf::Event& event) {
+    if (event.type == sf::Event::MouseWheelMoved) {
+        std::cout << "Wheel delta: " << event.mouseWheel.delta << '\n';
+        std::cout << "Wheel at " << event.mouseWheel.x << ", " << event.mouseWheel.y << '\n';
+    }
+}
+
+void HandleEvent(const sf::Event& event) {    //分发函数，让主函数里面一行就能运行所有函数
+    HandleResize(event);
+    HandleFocus(event);
+    HandleKeyPressed(event);
+    HandleKeyReleased(event);
+    HandleMouseButtonPressed(event);
+    HandleMouseWheelMoved(event);
+}
+
+int main() 
+{
+    sf::RenderWindow mainwindow(sf::VideoMode(1920,1080),L"千恋万花",sf::Style::Default); 
+    mainwindow.setFramerateLimit(30);    //设置帧率
+
+
+    while(mainwindow.isOpen()){
+        sf::Event event;
+        while(mainwindow.pollEvent(event)){     //检测操作，并实现
+            if (event.type == sf::Event::Closed){  //检测并实现关闭
+                mainwindow.close();
+            }
+            HandleEvent(event);
+        }
+        mainwindow.clear();    //清屏
+        mainwindow.display();    //重新绘制，这两步可以直接生成每一帧完整的画面，而不是逐步绘制
+        
+    }
+}

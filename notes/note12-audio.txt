@@ -1,0 +1,122 @@
+#include "Application.h"
+#include <iostream>
+
+Application::Application():     //创建窗口
+    mainwindow_(sf::VideoMode(1920, 1080), L"千恋万花", sf::Style::Default)
+{
+
+    mainwindow_.setFramerateLimit(60);
+
+    mainwindow_.setKeyRepeatEnabled(false);   
+    //禁用长按按键等于多次触发按键，让void Application::HandleKeyPressed函数只能检测一次按下，而不是长按就一直检测
+
+    if(buffer_appear_.loadFromFile("assets/sound/appear.ogg")){   //导入音效文件
+        std::cout<<"Get Sound"<<'\n';
+    }
+    sound_appear_.setBuffer(buffer_appear_);  //设置音效
+    sound_appear_.play();    //播放音效
+    sound_appear_.setVolume(110);    //设置音量
+    sound_appear_.setPitch(1.2f);    //设置音速
+    sound_appear_.setLoop(true);     //设置是否循环播放
+
+    if(bgmusic_.openFromFile("assets/music/bgm.wav")){  //设置音乐
+        std::cout<<"Get Music"<<'\n';
+    }
+    bgmusic_.play();
+    bgmusic_.setVolume(110);    //设置音量
+    bgmusic_.setPitch(1.2f);    //设置音速
+    bgmusic_.setLoop(true);     //设置是否循环播放
+
+    std::cout<<"Duration"<<bgmusic_.getDuration().asSeconds()<<'\n';  //获取音乐总时长
+    std::cout<<"Position"<<bgmusic_.getPlayingOffset().asSeconds()<<'\n';   //获取播放到的位置
+
+}
+
+bool Application::IsRunning() const    //判断是否运行
+{
+    return mainwindow_.isOpen();
+}
+
+void Application::Tick(){    //主循环
+    ProcessEvents();
+    Update();
+    Render();
+}
+
+void Application::ProcessEvents()    //处理事件
+{
+    sf::Event event;
+    while(mainwindow_.pollEvent(event)){ 
+        HandleEvent(event, mainwindow_);
+        }
+}
+
+void Application::Update(){     //上传
+
+    float deltaTime = clock_.restart().asSeconds();   //每一帧的时间
+    //std::cout<<deltaTime<<'\n'; 
+
+    if(sound_appear_.getStatus() == sf::Sound::Status::Playing){  //检测是否在播放
+        std::cout<<"Sound Play"<<'\n';
+    }
+
+}
+
+void Application::Render(){    //刷新
+    mainwindow_.clear();
+
+    mainwindow_.display();
+}
+
+void Application::HandleResize(const sf::Event& event) {      //实现并检测缩放窗口
+    std::cout << "new size " << event.size.width << ", " << event.size.height << '\n';
+}
+
+
+
+void Application::HandleEvent(const sf::Event& event, sf::RenderWindow& window) {
+    switch (event.type) {
+        case sf::Event::Resized:       HandleResize(event);        break;
+        case sf::Event::Closed: window.close(); break;
+        default: break;  // 不关心的事件类型直接忽略
+    }
+}
+
+
+
+头文件中
+#pragma once
+
+#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+
+class Application{
+    private:
+        sf::RenderWindow mainwindow_;
+
+        sf::Clock clock_;
+        sf::Clock deltatime_;
+
+        sf::SoundBuffer buffer_appear_;
+        sf::Sound sound_appear_;
+
+        sf::Music bgmusic_;
+
+    public:
+        Application();
+
+        bool IsRunning() const;
+
+        void Tick();
+
+    private:
+        void HandleResize(const sf::Event& event);
+
+        void HandleEvent(const sf::Event& event, sf::RenderWindow& window);
+
+        void ProcessEvents();
+        void Update();
+        void Render();
+
+
+};

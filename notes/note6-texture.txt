@@ -1,0 +1,35 @@
+Application::Application():     //创建窗口
+    mainwindow_(sf::VideoMode(1920, 1080), L"千恋万花", sf::Style::Default)
+{
+
+    mainwindow_.setFramerateLimit(60);
+
+    texture_.loadFromFile("assets/charactors/zmx.png");     //设置纹理
+    if(!texture_.loadFromFile("assets/charactors/zmx.png")){      //判断纹理文件是否存在
+        std::cout<<"not found texture"<<'\n';
+    }
+
+    texture_.setSmooth(true);     //设置纹理为平滑
+
+    zmx_.setSize({320,320});
+    zmx_.setPosition({500,600});
+    zmx_.setTexture(&texture_);      //设置纹理
+    zmx_.setFillColor(sf::Color::Blue);     //设置颜色，会像加了某色滤镜一样
+    zmx_.setTexture(nullptr);    //删除形状纹理
+
+    sprite_.setTexture(texture_);    //设置精灵
+    sprite_.setPosition(900,600);    
+    sprite_.setScale({0.5,0.5});      //缩放精灵
+    //注意，精灵无法清空纹理，因为精灵不能用指针，用的是引用，引用不能为空
+}
+
+
+
+void Application::Render(){    //刷新
+    mainwindow_.clear();
+
+    mainwindow_.draw(zmx_);
+    mainwindow_.draw(sprite_);
+
+    mainwindow_.display();
+}
