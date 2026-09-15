@@ -1,4 +1,6 @@
 #include "Application.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <random>
 
@@ -12,6 +14,20 @@ Application::Application():     //创建窗口
     bgm_.openFromFile("assets/music/bgm.wav");
     bgm_.play();
     bgm_.setLoop(true);
+    bgm_.setVolume(42.f);
+
+    score_sound_buffer_.loadFromFile("assets/sounds/score.wav");
+    hurt_sound_buffer_.loadFromFile("assets/sounds/hurt.wav");
+    heal_sound_buffer_.loadFromFile("assets/sounds/heal.wav");
+    dash_sound_buffer_.loadFromFile("assets/sounds/dash.wav");
+    score_sound_.setBuffer(score_sound_buffer_);
+    hurt_sound_.setBuffer(hurt_sound_buffer_);
+    heal_sound_.setBuffer(heal_sound_buffer_);
+    dash_sound_.setBuffer(dash_sound_buffer_);
+    score_sound_.setVolume(55.f);
+    hurt_sound_.setVolume(65.f);
+    heal_sound_.setVolume(70.f);
+    dash_sound_.setVolume(65.f);
 
     texture_background_.loadFromFile("assets/backgrounds/background.png");
     background_.setPosition({0,0});
@@ -26,6 +42,13 @@ Application::Application():     //创建窗口
     texture_qiaolezi_.loadFromFile("assets/charactors/qiaolezi.png");
     qiaolezi_.setTexture(texture_qiaolezi_);
     qiaolezi_.setPosition({-200.f, -200.f});
+
+    texture_xuebi_.loadFromFile("assets/charactors/xuebi.png");
+    xuebi_.setTexture(texture_xuebi_);
+    sf::FloatRect xuebi_bounds = xuebi_.getLocalBounds();
+    xuebi_.setOrigin(xuebi_bounds.left + xuebi_bounds.width / 2.f,
+                     xuebi_bounds.top + xuebi_bounds.height / 2.f);
+    xuebi_.setPosition({-200.f, -200.f});
 
     texture_tumu_.loadFromFile("assets/charactors/tumu.png");
 
@@ -48,6 +71,36 @@ Application::Application():     //创建窗口
     sf::FloatRect tr = text_restart_.getLocalBounds();
     text_restart_.setOrigin(tr.left + tr.width / 2.f, tr.top + tr.height / 2.f);
     text_restart_.setPosition(SCREEN_W / 2.f, SCREEN_H / 2.f + 120.f);
+
+    text_final_score_.setFont(font_);
+    text_final_score_.setCharacterSize(46);
+    text_final_score_.setFillColor(sf::Color(255, 230, 90));
+    text_final_score_.setOutlineColor(sf::Color::Black);
+    text_final_score_.setOutlineThickness(3.f);
+    text_final_score_.setPosition(SCREEN_W / 2.f, SCREEN_H / 2.f - 105.f);
+
+    text_score_.setFont(font_);
+    text_score_.setCharacterSize(58);
+    text_score_.setFillColor(sf::Color::White);
+    text_score_.setOutlineColor(sf::Color::Black);
+    text_score_.setOutlineThickness(4.f);
+    text_score_.setPosition(50.f, 30.f);
+
+    text_heart_.setFont(font_);
+    text_heart_.setCharacterSize(42);
+    text_heart_.setFillColor(sf::Color(255, 85, 85));
+    text_heart_.setOutlineColor(sf::Color::Black);
+    text_heart_.setOutlineThickness(3.f);
+    text_heart_.setPosition(50.f, 105.f);
+
+    text_status_.setFont(font_);
+    text_status_.setCharacterSize(48);
+    text_status_.setOutlineColor(sf::Color::Black);
+    text_status_.setOutlineThickness(4.f);
+
+    screen_flash_.setSize({SCREEN_W, SCREEN_H});
+    screen_flash_.setFillColor(sf::Color::Transparent);
+    UpdateHud();
 
 }
 
@@ -82,12 +135,15 @@ void Application::Update(){
     }
     SetXuefengMove();
     UpdatePipes();
+    UpdateScore();
     UpdateQiaolezi();
     CheckQiaoleziCollection();
+    UpdateXuebi();
+    CheckXuebiCollection();
     UpdateDash();
-    if (!is_dashing_) {
-        IsHurt();
-    }
+    IsHurt();
+    UpdateEffects();
+    UpdateHud();
 
 }
 
@@ -99,6 +155,20 @@ void Application::Render(){
     RenderPipes();
     if (qiaolezi_active_) {
         mainwindow_.draw(qiaolezi_);
+    }
+    if (xuebi_active_) {
+        mainwindow_.draw(xuebi_);
+    }
+    for (const auto& particle : particles_) {
+        mainwindow_.draw(particle.shape);
+    }
+    if (screen_flash_timer_ > 0.f) {
+        mainwindow_.draw(screen_flash_);
+    }
+    mainwindow_.draw(text_score_);
+    mainwindow_.draw(text_heart_);
+    if (status_timer_ > 0.f) {
+        mainwindow_.draw(text_status_);
     }
     if(!islife_){
         DrawGameOver();
@@ -169,6 +239,7 @@ void Application::InitPipes() {
 
         pipe_x_[i]     = SCREEN_W + 200.f + i * (PIPE_WIDTH * PIPE_SCALE + PIPE_GAP_H);
         pipe_gap_y_[i] = gap_dist_(rng_);
+        pipe_scored_[i] = false;
 
         up_pipes_[i]->setPosition(pipe_x_[i],
             pipe_gap_y_[i] - PIPE_GAP_V / 2.f - PIPE_HALF_H*PIPE_SCALE);
@@ -184,13 +255,28 @@ void Application::UpdatePipes() {
         pipe_x_[i] -= speed * dt;
 
         if (pipe_x_[i] < -PIPE_WIDTH*PIPE_SCALE) {
+            if (qiaolezi_active_ && qiaolezi_pipe_index_ == i) {
+                qiaolezi_active_ = false;
+                qiaolezi_pipe_index_ = -1;
+            }
+            if (xuebi_active_ && xuebi_pipe_index_ == i) {
+                xuebi_active_ = false;
+                xuebi_pipe_index_ = -1;
+            }
             pipe_x_[i]     += NUM_PIPES * (PIPE_WIDTH * PIPE_SCALE + PIPE_GAP_H);
             pipe_gap_y_[i]  = gap_dist_(rng_);
+            pipe_scored_[i] = false;
 
             std::uniform_real_distribution<float> chance(0.f, 1.f);
-            if (!qiaolezi_active_ && chance(rng_) < 0.5f) {
-                qiaolezi_active_ = true;
-                qiaolezi_pipe_index_ = i;
+            if (!qiaolezi_active_ && !xuebi_active_) {
+                float roll = chance(rng_);
+                if (roll < 0.32f) {
+                    qiaolezi_active_ = true;
+                    qiaolezi_pipe_index_ = i;
+                } else if (roll < 0.55f) {
+                    xuebi_active_ = true;
+                    xuebi_pipe_index_ = i;
+                }
             }
         }
 
@@ -199,6 +285,26 @@ void Application::UpdatePipes() {
         down_pipes_[i]->setPosition(pipe_x_[i],
             pipe_gap_y_[i] + PIPE_GAP_V / 2.f);
     }
+}
+
+void Application::UpdateScore() {
+    sf::FloatRect bird = xuefeng_.getGlobalBounds();
+    for (int i = 0; i < NUM_PIPES; ++i) {
+        float pipe_right = pipe_x_[i] + PIPE_WIDTH * PIPE_SCALE;
+        if (!pipe_scored_[i] && pipe_right < bird.left) {
+            pipe_scored_[i] = true;
+            ++score_;
+            high_score_ = std::max(high_score_, score_);
+            score_sound_.play();
+            ShowStatus(L"得分 +1", sf::Color(255, 235, 90));
+        }
+    }
+}
+
+void Application::UpdateHud() {
+    text_score_.setString(L"分数  " + std::to_wstring(score_));
+    text_heart_.setString(L"生命  " + std::to_wstring(heart_) + L" / " +
+                          std::to_wstring(MAX_HEARTS));
 }
 
 
@@ -253,6 +359,10 @@ void Application::SetXuefengMove(){
 
 void Application::IsHurt() {
 
+    if (is_dashing_ || hurt_cooldown_ > 0.f) {
+        return;
+    }
+
     sf::FloatRect bird = xuefeng_.getGlobalBounds();
     float shrink_w = bird.width  * 0.05f;
     float shrink_h = bird.height * 0.05f;
@@ -275,7 +385,13 @@ void Application::IsHurt() {
 
         if (bird.intersects(upPipe) || bird.intersects(downPipe)) {
             heart_--;
-            hurt_cooldown_ = 1.0f;
+            hurt_cooldown_ = 1.35f;
+            hurt_sound_.play();
+            screen_flash_timer_ = 0.22f;
+            screen_flash_.setFillColor(sf::Color(255, 30, 30, 105));
+            SpawnParticles({bird.left + bird.width / 2.f, bird.top + bird.height / 2.f},
+                           sf::Color(255, 65, 65), 18);
+            ShowStatus(L"受伤！短暂无敌", sf::Color(255, 90, 90));
             break;
         }
     }
@@ -286,7 +402,15 @@ void Application::IsHurt() {
 
 
 void Application::DrawGameOver(){
+    text_final_score_.setString(
+        L"本局 " + std::to_wstring(score_) + L" 分    最高 " +
+        std::to_wstring(high_score_) + L" 分");
+    sf::FloatRect score_bounds = text_final_score_.getLocalBounds();
+    text_final_score_.setOrigin(score_bounds.left + score_bounds.width / 2.f,
+                                score_bounds.top + score_bounds.height / 2.f);
+    text_final_score_.setPosition(SCREEN_W / 2.f, SCREEN_H / 2.f - 105.f);
     mainwindow_.draw(losebackground_);
+    mainwindow_.draw(text_final_score_);
     mainwindow_.draw(text_lose_);
     mainwindow_.draw(text_restart_);
 }
@@ -303,17 +427,26 @@ void Application::HandleMouseButton(const sf::Event& event) {
 
 void Application::Restart() {
     islife_ = true;
-    heart_ = 1;
+    heart_ = MAX_HEARTS;
+    score_ = 0;
     xuefeng_.setPosition({350.f, 490.f});
+    xuefeng_.setColor(sf::Color::White);
     velocity_xuefeng_ = {0.f, 0.f};
     hurt_cooldown_ = 0.f;
     qiaolezi_active_ = false;
+    qiaolezi_pipe_index_ = -1;
+    xuebi_active_ = false;
+    xuebi_pipe_index_ = -1;
     is_dashing_ = false;
     dash_timer_ = 0.f;
+    status_timer_ = 0.f;
+    screen_flash_timer_ = 0.f;
+    particles_.clear();
 
     for (int i = 0; i < NUM_PIPES; ++i) {
         pipe_x_[i]     = SCREEN_W + 200.f + i * (PIPE_WIDTH * PIPE_SCALE + PIPE_GAP_H);
         pipe_gap_y_[i] = gap_dist_(rng_);
+        pipe_scored_[i] = false;
         up_pipes_[i]->setPosition(pipe_x_[i],
             pipe_gap_y_[i] - PIPE_GAP_V / 2.f - PIPE_HALF_H * PIPE_SCALE);
         down_pipes_[i]->setPosition(pipe_x_[i],
@@ -329,7 +462,8 @@ void Application::UpdateQiaolezi() {
     float cx = pipe_x_[i] + PIPE_WIDTH * PIPE_SCALE / 2.f;
     float cy = pipe_gap_y_[i];
     sf::FloatRect bounds = qiaolezi_.getGlobalBounds();
-    qiaolezi_.setPosition(cx - bounds.width / 2.f, cy - bounds.height / 2.f);
+    float bob = std::sin(clock_.getElapsedTime().asSeconds() * 5.f) * 16.f;
+    qiaolezi_.setPosition(cx - bounds.width / 2.f, cy - bounds.height / 2.f + bob);
 
     if (pipe_x_[i] < -PIPE_WIDTH * PIPE_SCALE) {
         qiaolezi_active_ = false;
@@ -347,6 +481,47 @@ void Application::CheckQiaoleziCollection() {
         qiaolezi_active_ = false;
         is_dashing_ = true;
         dash_timer_ = DASH_DURATION;
+        dash_sound_.play();
+        SpawnParticles({item.left + item.width / 2.f, item.top + item.height / 2.f},
+                       sf::Color(255, 205, 70), 28);
+        ShowStatus(L"雪峰冲刺！", sf::Color(255, 220, 60));
+        screen_flash_timer_ = 0.16f;
+        screen_flash_.setFillColor(sf::Color(255, 225, 60, 60));
+    }
+}
+
+void Application::UpdateXuebi() {
+    if (!xuebi_active_)
+        return;
+
+    int i = xuebi_pipe_index_;
+    float cx = pipe_x_[i] + PIPE_WIDTH * PIPE_SCALE / 2.f;
+    float cy = pipe_gap_y_[i];
+    float time = clock_.getElapsedTime().asSeconds();
+    float bob = std::sin(time * 5.f + 1.5f) * 18.f;
+    xuebi_.setRotation(std::sin(time * 3.5f) * 8.f);
+    xuebi_.setPosition(cx, cy + bob);
+}
+
+void Application::CheckXuebiCollection() {
+    if (!xuebi_active_)
+        return;
+
+    sf::FloatRect bird = xuefeng_.getGlobalBounds();
+    sf::FloatRect item = xuebi_.getGlobalBounds();
+    if (bird.intersects(item)) {
+        xuebi_active_ = false;
+        heal_sound_.play();
+        SpawnParticles({item.left + item.width / 2.f, item.top + item.height / 2.f},
+                       sf::Color(80, 255, 130), 26);
+        screen_flash_timer_ = 0.2f;
+        screen_flash_.setFillColor(sf::Color(70, 255, 120, 65));
+        if (heart_ < MAX_HEARTS) {
+            ++heart_;
+            ShowStatus(L"雪碧续命！生命 +1", sf::Color(90, 255, 135));
+        } else {
+            ShowStatus(L"生命已满！", sf::Color(90, 255, 135));
+        }
     }
 }
 
@@ -357,6 +532,81 @@ void Application::UpdateDash() {
     dash_timer_ -= dt;
     if (dash_timer_ <= 0.f) {
         is_dashing_ = false;
+        xuefeng_.setColor(sf::Color::White);
         return;
     }
+}
+
+void Application::UpdateEffects() {
+    if (hurt_cooldown_ > 0.f) {
+        hurt_cooldown_ = std::max(0.f, hurt_cooldown_ - dt);
+        bool visible = static_cast<int>(hurt_cooldown_ * 12.f) % 2 == 0;
+        xuefeng_.setColor(visible ? sf::Color(255, 150, 150, 235)
+                                  : sf::Color(255, 255, 255, 70));
+    } else if (is_dashing_) {
+        xuefeng_.setColor(sf::Color(255, 245, 100));
+        sf::FloatRect bird = xuefeng_.getGlobalBounds();
+        SpawnParticles({bird.left, bird.top + bird.height / 2.f},
+                       sf::Color(255, 220, 70), 2);
+    } else {
+        xuefeng_.setColor(sf::Color::White);
+    }
+
+    if (status_timer_ > 0.f) {
+        status_timer_ = std::max(0.f, status_timer_ - dt);
+        text_status_.move(0.f, -24.f * dt);
+        sf::Color color = text_status_.getFillColor();
+        color.a = static_cast<sf::Uint8>(255.f * std::min(1.f, status_timer_ / 0.35f));
+        text_status_.setFillColor(color);
+    }
+
+    if (screen_flash_timer_ > 0.f) {
+        screen_flash_timer_ = std::max(0.f, screen_flash_timer_ - dt);
+    }
+
+    for (auto& particle : particles_) {
+        particle.lifetime -= dt;
+        particle.velocity.y += 420.f * dt;
+        particle.shape.move(particle.velocity * dt);
+        sf::Color color = particle.shape.getFillColor();
+        color.a = static_cast<sf::Uint8>(255.f *
+            std::max(0.f, particle.lifetime / particle.max_lifetime));
+        particle.shape.setFillColor(color);
+    }
+    particles_.erase(
+        std::remove_if(particles_.begin(), particles_.end(),
+                       [](const Particle& p) { return p.lifetime <= 0.f; }),
+        particles_.end());
+}
+
+void Application::SpawnParticles(sf::Vector2f position, sf::Color color, int count) {
+    std::uniform_real_distribution<float> angle_dist(0.f, 6.2831853f);
+    std::uniform_real_distribution<float> speed_dist(90.f, 360.f);
+    std::uniform_real_distribution<float> size_dist(5.f, 13.f);
+    std::uniform_real_distribution<float> life_dist(0.35f, 0.75f);
+
+    for (int i = 0; i < count; ++i) {
+        float angle = angle_dist(rng_);
+        float speed = speed_dist(rng_);
+        Particle particle;
+        float size = size_dist(rng_);
+        particle.shape.setSize({size, size});
+        particle.shape.setOrigin(size / 2.f, size / 2.f);
+        particle.shape.setPosition(position);
+        particle.shape.setFillColor(color);
+        particle.velocity = {std::cos(angle) * speed, std::sin(angle) * speed};
+        particle.lifetime = life_dist(rng_);
+        particle.max_lifetime = particle.lifetime;
+        particles_.push_back(particle);
+    }
+}
+
+void Application::ShowStatus(const sf::String& message, sf::Color color) {
+    text_status_.setString(message);
+    text_status_.setFillColor(color);
+    sf::FloatRect bounds = text_status_.getLocalBounds();
+    text_status_.setOrigin(bounds.left + bounds.width / 2.f,
+                           bounds.top + bounds.height / 2.f);
+    text_status_.setPosition(SCREEN_W / 2.f, 175.f);
+    status_timer_ = 1.15f;
 }
