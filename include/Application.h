@@ -14,10 +14,12 @@ class Application{
         sf::SoundBuffer hurt_sound_buffer_;
         sf::SoundBuffer heal_sound_buffer_;
         sf::SoundBuffer dash_sound_buffer_;
+        sf::SoundBuffer death_sound_buffer_;
         sf::Sound score_sound_;
         sf::Sound hurt_sound_;
         sf::Sound heal_sound_;
         sf::Sound dash_sound_;
+        sf::Sound death_sound_;
 
         sf::Clock clock_;
         sf::Clock deltatime_;
@@ -81,6 +83,12 @@ class Application{
         float status_timer_ = 0.f;
         sf::RectangleShape screen_flash_;
         float screen_flash_timer_ = 0.f;
+        sf::CircleShape death_halo_;
+        bool death_animation_ = false;
+        float death_timer_ = 0.f;
+        float death_particle_timer_ = 0.f;
+        sf::Vector2f death_start_position_;
+        static constexpr float DEATH_DURATION = 1.85f;
 
 
         sf::Texture texture_qiaolezi_;
@@ -140,6 +148,8 @@ class Application{
         void UpdateXuebi();
         void CheckXuebiCollection();
         void UpdateDash();
+        void StartDeathAnimation();
+        void UpdateDeathAnimation();
         void UpdateEffects();
         void SpawnParticles(sf::Vector2f position, sf::Color color, int count);
         void ShowStatus(const sf::String& message, sf::Color color);

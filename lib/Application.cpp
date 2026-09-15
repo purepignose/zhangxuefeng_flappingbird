@@ -20,14 +20,17 @@ Application::Application():     //创建窗口
     hurt_sound_buffer_.loadFromFile("assets/sounds/hurt.wav");
     heal_sound_buffer_.loadFromFile("assets/sounds/heal.wav");
     dash_sound_buffer_.loadFromFile("assets/sounds/dash.wav");
+    death_sound_buffer_.loadFromFile("assets/sounds/death.wav");
     score_sound_.setBuffer(score_sound_buffer_);
     hurt_sound_.setBuffer(hurt_sound_buffer_);
     heal_sound_.setBuffer(heal_sound_buffer_);
     dash_sound_.setBuffer(dash_sound_buffer_);
+    death_sound_.setBuffer(death_sound_buffer_);
     score_sound_.setVolume(55.f);
     hurt_sound_.setVolume(65.f);
     heal_sound_.setVolume(70.f);
     dash_sound_.setVolume(65.f);
+    death_sound_.setVolume(72.f);
 
     texture_background_.loadFromFile("assets/backgrounds/background.png");
     background_.setPosition({0,0});
@@ -61,6 +64,7 @@ Application::Application():     //创建窗口
     text_lose_.setString(L"学土木去吧");
     text_lose_.setCharacterSize(100);
     text_lose_.setLetterSpacing(5);
+    text_lose_.setLineSpacing(1.f);
     sf::FloatRect tb = text_lose_.getLocalBounds();
     text_lose_.setOrigin(tb.left + tb.width / 2.f, tb.top + tb.height / 2.f);
     text_lose_.setPosition(SCREEN_W / 2.f, SCREEN_H / 2.f);
@@ -100,6 +104,14 @@ Application::Application():     //创建窗口
 
     screen_flash_.setSize({SCREEN_W, SCREEN_H});
     screen_flash_.setFillColor(sf::Color::Transparent);
+
+    death_halo_.setRadius(48.f);
+    death_halo_.setPointCount(16);
+    death_halo_.setOrigin(48.f, 48.f);
+    death_halo_.setScale(1.f, 0.34f);
+    death_halo_.setFillColor(sf::Color::Transparent);
+    death_halo_.setOutlineColor(sf::Color(255, 225, 80));
+    death_halo_.setOutlineThickness(9.f);
     UpdateHud();
 
 }
@@ -131,6 +143,10 @@ void Application::Update(){
 
     dt = deltatime_.restart().asSeconds();
     if (!islife_){
+        if (death_animation_) {
+            UpdateDeathAnimation();
+        }
+        UpdateEffects();
         return;
     }
     SetXuefengMove();
@@ -151,8 +167,14 @@ void Application::Update(){
 void Application::Render(){
     mainwindow_.clear();
     mainwindow_.draw(background_);
-    mainwindow_.draw(xuefeng_);
+    if (!death_animation_) {
+        mainwindow_.draw(xuefeng_);
+    }
     RenderPipes();
+    if (death_animation_) {
+        mainwindow_.draw(death_halo_);
+        mainwindow_.draw(xuefeng_);
+    }
     if (qiaolezi_active_) {
         mainwindow_.draw(qiaolezi_);
     }
@@ -170,7 +192,7 @@ void Application::Render(){
     if (status_timer_ > 0.f) {
         mainwindow_.draw(text_status_);
     }
-    if(!islife_){
+    if(!islife_ && !death_animation_){
         DrawGameOver();
     }
     mainwindow_.display();
@@ -396,7 +418,7 @@ void Application::IsHurt() {
         }
     }
     if (heart_ <= 0) {
-        islife_ = false;
+        StartDeathAnimation();
     }
 }
 
@@ -417,7 +439,7 @@ void Application::DrawGameOver(){
 
 
 void Application::HandleMouseButton(const sf::Event& event) {
-    if (!islife_) {
+    if (!islife_ && !death_animation_) {
         sf::FloatRect bounds = text_restart_.getGlobalBounds();
         if (bounds.contains((float)event.mouseButton.x, (float)event.mouseButton.y)) {
             Restart();
@@ -429,8 +451,11 @@ void Application::Restart() {
     islife_ = true;
     heart_ = MAX_HEARTS;
     score_ = 0;
+    xuefeng_.setOrigin({0.f, 0.f});
     xuefeng_.setPosition({350.f, 490.f});
     xuefeng_.setColor(sf::Color::White);
+    xuefeng_.setRotation(0.f);
+    xuefeng_.setScale({1.5f, 1.5f});
     velocity_xuefeng_ = {0.f, 0.f};
     hurt_cooldown_ = 0.f;
     qiaolezi_active_ = false;
@@ -441,6 +466,11 @@ void Application::Restart() {
     dash_timer_ = 0.f;
     status_timer_ = 0.f;
     screen_flash_timer_ = 0.f;
+    death_animation_ = false;
+    death_timer_ = 0.f;
+    death_particle_timer_ = 0.f;
+    death_halo_.setPosition({-200.f, -200.f});
+    bgm_.setVolume(42.f);
     particles_.clear();
 
     for (int i = 0; i < NUM_PIPES; ++i) {
@@ -537,18 +567,86 @@ void Application::UpdateDash() {
     }
 }
 
+void Application::StartDeathAnimation() {
+    islife_ = false;
+    death_animation_ = true;
+    death_timer_ = 0.f;
+    death_particle_timer_ = 0.f;
+    status_timer_ = 0.f;
+    high_score_ = std::max(high_score_, score_);
+    death_sound_.play();
+    screen_flash_timer_ = 0.3f;
+    screen_flash_.setFillColor(sf::Color(255, 245, 210, 120));
+
+    sf::FloatRect bird = xuefeng_.getGlobalBounds();
+    sf::Vector2f center = {bird.left + bird.width / 2.f,
+                           bird.top + bird.height / 2.f};
+    sf::FloatRect local = xuefeng_.getLocalBounds();
+    xuefeng_.setOrigin(local.left + local.width / 2.f,
+                       local.top + local.height / 2.f);
+    xuefeng_.setPosition(center);
+    death_start_position_ = center;
+    SpawnParticles(center, sf::Color(255, 230, 110), 34);
+}
+
+void Application::UpdateDeathAnimation() {
+    death_timer_ += dt;
+    death_particle_timer_ -= dt;
+
+    const float freeze_time = 0.12f;
+    float motion_time = std::max(0.f, death_timer_ - freeze_time);
+    float progress = std::min(1.f, motion_time / (DEATH_DURATION - freeze_time));
+    float eased = 1.f - std::pow(1.f - progress, 2.f);
+
+    float spiral_width = 30.f + 105.f * progress;
+    float x = death_start_position_.x +
+              std::sin(progress * 6.f * 3.14159265f) * spiral_width;
+    float y = death_start_position_.y - 900.f * eased;
+    xuefeng_.setPosition(x, y);
+    xuefeng_.setRotation(1080.f * eased);
+
+    float scale = 1.5f - 0.85f * eased;
+    xuefeng_.setScale(scale, scale);
+    float fade = progress < 0.55f ? 1.f : 1.f - (progress - 0.55f) / 0.45f;
+    sf::Uint8 alpha = static_cast<sf::Uint8>(255.f * std::max(0.f, fade));
+    xuefeng_.setColor(sf::Color(255, 255, 235, alpha));
+
+    sf::FloatRect bird = xuefeng_.getGlobalBounds();
+    sf::Vector2f center = {bird.left + bird.width / 2.f,
+                           bird.top + bird.height / 2.f};
+    death_halo_.setPosition(center.x, bird.top - 22.f);
+    sf::Color halo_color = death_halo_.getOutlineColor();
+    halo_color.a = alpha;
+    death_halo_.setOutlineColor(halo_color);
+
+    if (progress > 0.f && progress < 0.93f && death_particle_timer_ <= 0.f) {
+        SpawnParticles(center, sf::Color(255, 245, 190), 3);
+        death_particle_timer_ = 0.055f;
+    }
+
+    bgm_.setVolume(42.f * (1.f - 0.78f * progress));
+
+    if (death_timer_ >= DEATH_DURATION) {
+        death_animation_ = false;
+        xuefeng_.setColor(sf::Color::Transparent);
+        death_halo_.setPosition({-200.f, -200.f});
+        screen_flash_timer_ = 0.18f;
+        screen_flash_.setFillColor(sf::Color(255, 255, 225, 80));
+    }
+}
+
 void Application::UpdateEffects() {
-    if (hurt_cooldown_ > 0.f) {
+    if (islife_ && hurt_cooldown_ > 0.f) {
         hurt_cooldown_ = std::max(0.f, hurt_cooldown_ - dt);
         bool visible = static_cast<int>(hurt_cooldown_ * 12.f) % 2 == 0;
         xuefeng_.setColor(visible ? sf::Color(255, 150, 150, 235)
                                   : sf::Color(255, 255, 255, 70));
-    } else if (is_dashing_) {
+    } else if (islife_ && is_dashing_) {
         xuefeng_.setColor(sf::Color(255, 245, 100));
         sf::FloatRect bird = xuefeng_.getGlobalBounds();
         SpawnParticles({bird.left, bird.top + bird.height / 2.f},
                        sf::Color(255, 220, 70), 2);
-    } else {
+    } else if (islife_) {
         xuefeng_.setColor(sf::Color::White);
     }
 

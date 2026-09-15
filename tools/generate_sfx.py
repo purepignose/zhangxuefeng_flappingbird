@@ -72,8 +72,29 @@ def dash(t: float, duration: float) -> float:
     return (sweep * 0.62 + noise * 0.28) * 0.45 * envelope(t, duration, 0.012)
 
 
+def death(t: float, duration: float) -> float:
+    notes = (392.00, 493.88, 587.33, 783.99, 987.77, 1174.66)
+    note_length = 0.22
+    note_index = min(len(notes) - 1, int(max(0.0, t - 0.12) / note_length))
+    local_t = max(0.0, t - 0.12 - note_index * note_length)
+    tone = math.sin(2.0 * math.pi * notes[note_index] * local_t)
+    angelic = 0.32 * math.sin(2.0 * math.pi * notes[note_index] * 2.0 * local_t)
+    note_env = envelope(local_t, note_length, 0.008)
+
+    final_ding = 0.0
+    if t > 1.43:
+        ding_t = t - 1.43
+        ding_env = math.exp(-5.5 * ding_t)
+        final_ding = (
+            math.sin(2.0 * math.pi * 1567.98 * ding_t)
+            + 0.45 * math.sin(2.0 * math.pi * 2351.97 * ding_t)
+        ) * ding_env
+
+    return (tone + angelic) * 0.27 * note_env + final_ding * 0.28
+
+
 save("score.wav", 0.19, score)
 save("hurt.wav", 0.28, hurt)
 save("heal.wav", 0.48, heal)
 save("dash.wav", 0.48, dash)
-
+save("death.wav", 1.85, death)
