@@ -93,8 +93,17 @@ def death(t: float, duration: float) -> float:
     return (tone + angelic) * 0.27 * note_env + final_ding * 0.28
 
 
+def flap(t: float, duration: float) -> float:
+    progress = t / duration
+    frequency = 310.0 + 260.0 * progress
+    soft_pop = math.sin(2.0 * math.pi * frequency * t)
+    airy = math.sin(2.0 * math.pi * 92.0 * t) * (1.0 - progress)
+    return (soft_pop * 0.55 + airy * 0.25) * 0.48 * envelope(t, duration, 0.004)
+
+
 save("score.wav", 0.19, score)
 save("hurt.wav", 0.28, hurt)
 save("heal.wav", 0.48, heal)
 save("dash.wav", 0.48, dash)
 save("death.wav", 1.85, death)
+save("flap.wav", 0.13, flap)

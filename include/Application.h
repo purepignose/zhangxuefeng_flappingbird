@@ -4,6 +4,7 @@
 #include <SFML/Audio.hpp>
 #include <random>
 #include <vector>
+#include <cstddef>
 
 class Application{
     private:
@@ -15,19 +16,28 @@ class Application{
         sf::SoundBuffer heal_sound_buffer_;
         sf::SoundBuffer dash_sound_buffer_;
         sf::SoundBuffer death_sound_buffer_;
+        sf::SoundBuffer flap_sound_buffer_;
         sf::Sound score_sound_;
         sf::Sound hurt_sound_;
         sf::Sound heal_sound_;
         sf::Sound dash_sound_;
         sf::Sound death_sound_;
+        sf::Sound flap_sound_;
 
         sf::Clock clock_;
         sf::Clock deltatime_;
 
         sf::Texture texture_xuefeng_;
         sf::Sprite xuefeng_;
+        sf::Sprite xuefeng_visual_;
         sf::Vector2f velocity_xuefeng_;
         float dt = 0.0;
+        float flight_rotation_ = 0.f;
+        float flap_effect_timer_ = 0.f;
+        float flight_particle_timer_ = 0.f;
+        sf::CircleShape flap_ring_;
+        float flap_ring_timer_ = 0.f;
+        static constexpr float FLAP_EFFECT_DURATION = 0.18f;
 
         sf::Sprite background_;
         sf::Texture texture_background_;
@@ -71,6 +81,12 @@ class Application{
         float hurt_cooldown_ = 0.f;
         int score_ = 0;
         int high_score_ = 0;
+        bool waiting_to_start_ = true;
+        std::vector<int> score_history_;
+        std::size_t history_page_ = 0;
+        bool confirm_clear_history_ = false;
+        bool clear_history_error_ = false;
+        static constexpr std::size_t HISTORY_PAGE_SIZE = 10;
 
         sf::RectangleShape losebackground_;
         sf::Text text_lose_;
@@ -87,6 +103,7 @@ class Application{
         bool death_animation_ = false;
         float death_timer_ = 0.f;
         float death_particle_timer_ = 0.f;
+        float death_start_rotation_ = 0.f;
         sf::Vector2f death_start_position_;
         static constexpr float DEATH_DURATION = 1.85f;
 
@@ -133,6 +150,8 @@ class Application{
 
         void HandleKeyPressed(const sf::Event& event);
         void SetXuefengMove();
+        void UpdateFlightVisual();
+        void SpawnFlapParticles();
         void InitPipes();
         void UpdatePipes();
         void UpdateScore();
@@ -141,6 +160,12 @@ class Application{
         void IsHurt();
         void GameOver();
         void DrawGameOver();
+        void DrawStartOverlay();
+        void LoadScoreHistory();
+        void RecordScore();
+        void ClearScoreHistory();
+        int ExamScoreForGameScore(int score) const;
+        sf::String UniversityForScore(int score) const;
         void Restart();
         
         void UpdateQiaolezi();
