@@ -2,3 +2,6 @@
 score_history.txt
 # Release packages are uploaded to GitHub Releases, not stored in source history.
 zhangxuefeng_flappingbird_v*.zip
+# Personal study notes and one-off asset-generation scripts stay local only.
+notes/
+tools/
