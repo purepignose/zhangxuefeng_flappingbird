@@ -28,4 +28,10 @@ private:
     bool showing_teaching_ = false;
     bool saying_ = false;
     bool showing_saying_ = false;
+    int selected_item_ = 0;
+    bool joystick_axis_neutral_ = true;
+
+    void MoveSelection(int direction);
+    void UpdateSelectionStyle();
+    bool ActivateSelectedItem();
 };

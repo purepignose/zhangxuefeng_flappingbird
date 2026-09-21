@@ -142,6 +142,7 @@ class Application{
     private:
         void HandleResize(const sf::Event& event);
         void HandleMouseButton(const sf::Event& event);
+        void HandleJoystickButton(const sf::Event& event);
         void HandleEvent(const sf::Event& event, sf::RenderWindow& window);
 
         void ProcessEvents();
@@ -149,6 +150,7 @@ class Application{
         void Render();
 
         void HandleKeyPressed(const sf::Event& event);
+        void Flap();
         void SetXuefengMove();
         void UpdateFlightVisual();
         void SpawnFlapParticles();

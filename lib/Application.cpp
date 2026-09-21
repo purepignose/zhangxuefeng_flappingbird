@@ -7,12 +7,21 @@
 #include <random>
 #include <string>
 
+namespace {
+constexpr unsigned int XBOX_A = 0;
+constexpr unsigned int XBOX_B = 1;
+constexpr unsigned int XBOX_X = 2;
+constexpr unsigned int XBOX_LB = 4;
+constexpr unsigned int XBOX_RB = 5;
+constexpr unsigned int XBOX_START = 7;
+}
 
 Application::Application():     //创建窗口
     mainwindow_(sf::VideoMode(1920, 1080), L"怀念张雪峰", sf::Style::Default)
 {
 
     mainwindow_.setFramerateLimit(120);
+    mainwindow_.setJoystickThreshold(35.f);
 
     bgm_.openFromFile("assets/music/bgm.wav");
     bgm_.play();
@@ -379,6 +388,7 @@ void Application::HandleEvent(const sf::Event& event, sf::RenderWindow& window) 
         case sf::Event::Closed: window.close();      break;
         case sf::Event::KeyPressed: HandleKeyPressed(event);   break;
         case sf::Event::MouseButtonPressed: HandleMouseButton(event);   break;
+        case sf::Event::JoystickButtonPressed: HandleJoystickButton(event); break;
         default: break;
     }
 }
@@ -401,13 +411,57 @@ void Application::HandleKeyPressed(const sf::Event& event) {
             return;
         }   
         if (event.key.code == sf::Keyboard::Space) {
-            velocity_xuefeng_.y = -800.f;
-            flap_effect_timer_ = FLAP_EFFECT_DURATION;
-            flap_ring_timer_ = FLAP_EFFECT_DURATION;
-            flap_sound_.stop();
-            flap_sound_.play();
-            SpawnFlapParticles();
+            Flap();
         }
+}
+
+void Application::Flap() {
+    velocity_xuefeng_.y = -800.f;
+    flap_effect_timer_ = FLAP_EFFECT_DURATION;
+    flap_ring_timer_ = FLAP_EFFECT_DURATION;
+    flap_sound_.stop();
+    flap_sound_.play();
+    SpawnFlapParticles();
+}
+
+void Application::HandleJoystickButton(const sf::Event& event) {
+    unsigned int button = event.joystickButton.button;
+
+    if (waiting_to_start_) {
+        if (confirm_clear_history_) {
+            if (button == XBOX_A) {
+                ClearScoreHistory();
+            } else if (button == XBOX_B) {
+                confirm_clear_history_ = false;
+                clear_history_error_ = false;
+            }
+            return;
+        }
+
+        std::size_t page_count = std::max<std::size_t>(1,
+            (score_history_.size() + HISTORY_PAGE_SIZE - 1) / HISTORY_PAGE_SIZE);
+        if (button == XBOX_X && !score_history_.empty()) {
+            clear_history_error_ = false;
+            confirm_clear_history_ = true;
+        } else if (button == XBOX_LB && history_page_ > 0) {
+            --history_page_;
+        } else if (button == XBOX_RB && history_page_ + 1 < page_count) {
+            ++history_page_;
+        } else if (button == XBOX_A || button == XBOX_START) {
+            waiting_to_start_ = false;
+            deltatime_.restart();
+        }
+        return;
+    }
+
+    if (!islife_) {
+        if (!death_animation_ && (button == XBOX_A || button == XBOX_START)) {
+            Restart();
+        }
+        return;
+    }
+
+    if (button == XBOX_A) Flap();
 }
 
 

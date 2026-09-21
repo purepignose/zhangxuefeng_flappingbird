@@ -1,8 +1,16 @@
 #include "StartMenu.h"
+#include <cmath>
+
+namespace {
+constexpr unsigned int XBOX_A = 0;
+constexpr unsigned int XBOX_B = 1;
+}
 
 StartMenu::StartMenu()
     : window_(sf::VideoMode(1920, 1080), L"张雪峰", sf::Style::Default)
 {
+    window_.setJoystickThreshold(35.f);
+    window_.setKeyRepeatEnabled(false);
     font_.loadFromFile("assets/fonts/fonts1.ttf");
 
     background_.setSize({1920,1080});
@@ -78,11 +86,15 @@ StartMenu::StartMenu()
     text_back_.setPosition(960.f, 1000.f);
 
     text_teachingwords_.setFont(font_);
-    text_teachingwords_.setCharacterSize(32);
+    text_teachingwords_.setCharacterSize(28);
     text_teachingwords_.setFillColor(sf::Color::Red);
     text_teachingwords_.setString(
         L"张雪峰老师被土木圣杯追杀！\n\n"
-        L"【空格键】让张雪峰向上飞\n"
+        L"【键盘】\n"
+        L"空格键：让张雪峰向上飞\n\n"
+        L"【Xbox 手柄】\n"
+        L"左摇杆 / 十字键：选择菜单    A：确认 / 起飞 / 再来一次\n"
+        L"B：返回 / 取消    X：清除历史记录    LB / RB：翻页\n\n"
         L"不按键时会自动下落\n\n"
         L"穿过柱子间隙即可得分\n"
         L"你有三条命，受伤后会短暂无敌\n"
@@ -127,6 +139,32 @@ StartMenu::StartMenu()
     text_sayingwords_.setOrigin(swBounds.left + swBounds.width / 2.f,
                                 swBounds.top + swBounds.height / 2.f);
     text_sayingwords_.setPosition(960.f, 450.f);
+
+    UpdateSelectionStyle();
+}
+
+void StartMenu::MoveSelection(int direction) {
+    selected_item_ = (selected_item_ + direction + 3) % 3;
+    UpdateSelectionStyle();
+}
+
+void StartMenu::UpdateSelectionStyle() {
+    sf::RectangleShape* buttons[] = {&start_button_, &teaching_button_, &saying_button_};
+    for (int i = 0; i < 3; ++i) {
+        bool selected = i == selected_item_;
+        buttons[i]->setFillColor(selected ? sf::Color(105, 90, 205)
+                                          : sf::Color(80, 80, 180));
+        buttons[i]->setOutlineColor(selected ? sf::Color(255, 220, 80)
+                                             : sf::Color::White);
+        buttons[i]->setOutlineThickness(selected ? 6.f : 3.f);
+    }
+}
+
+bool StartMenu::ActivateSelectedItem() {
+    if (selected_item_ == 0) return true;
+    if (selected_item_ == 1) showing_teaching_ = true;
+    if (selected_item_ == 2) showing_saying_ = true;
+    return false;
 }
 
 bool StartMenu::Run() {
@@ -136,6 +174,63 @@ bool StartMenu::Run() {
             if (event.type == sf::Event::Closed) {
                 window_.close();
                 return false;
+            }
+            if (event.type == sf::Event::KeyPressed) {
+                if (showing_teaching_ || showing_saying_) {
+                    if (event.key.code == sf::Keyboard::Escape ||
+                        event.key.code == sf::Keyboard::Enter) {
+                        showing_teaching_ = false;
+                        showing_saying_ = false;
+                    }
+                } else if (event.key.code == sf::Keyboard::Up) {
+                    MoveSelection(-1);
+                } else if (event.key.code == sf::Keyboard::Down) {
+                    MoveSelection(1);
+                } else if (event.key.code == sf::Keyboard::Enter) {
+                    if (ActivateSelectedItem()) {
+                        window_.close();
+                        return true;
+                    }
+                }
+            }
+            if (event.type == sf::Event::JoystickMoved &&
+                (event.joystickMove.axis == sf::Joystick::Y ||
+                 event.joystickMove.axis == sf::Joystick::PovY)) {
+                float position = event.joystickMove.position;
+                if (std::abs(position) < 25.f) {
+                    joystick_axis_neutral_ = true;
+                } else if (joystick_axis_neutral_ &&
+                           !showing_teaching_ && !showing_saying_) {
+                    int direction = 0;
+                    if (event.joystickMove.axis == sf::Joystick::Y) {
+                        direction = position > 0.f ? 1 : -1;
+                    } else {
+                        direction = position > 0.f ? -1 : 1;
+                    }
+                    MoveSelection(direction);
+                    joystick_axis_neutral_ = false;
+                }
+            }
+            if (event.type == sf::Event::JoystickButtonPressed) {
+                unsigned int button = event.joystickButton.button;
+                if (showing_teaching_ || showing_saying_) {
+                    if (button == XBOX_A || button == XBOX_B) {
+                        showing_teaching_ = false;
+                        showing_saying_ = false;
+                    }
+                } else if (button == XBOX_A && ActivateSelectedItem()) {
+                    window_.close();
+                    return true;
+                }
+            }
+            if (event.type == sf::Event::MouseMoved &&
+                !showing_teaching_ && !showing_saying_) {
+                sf::Vector2f mouse_pos(static_cast<float>(event.mouseMove.x),
+                                       static_cast<float>(event.mouseMove.y));
+                if (start_button_.getGlobalBounds().contains(mouse_pos)) selected_item_ = 0;
+                if (teaching_button_.getGlobalBounds().contains(mouse_pos)) selected_item_ = 1;
+                if (saying_button_.getGlobalBounds().contains(mouse_pos)) selected_item_ = 2;
+                UpdateSelectionStyle();
             }
             if (event.type == sf::Event::MouseButtonPressed) {
                 if (event.mouseButton.button == sf::Mouse::Left) {
