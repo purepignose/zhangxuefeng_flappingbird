@@ -1,2 +1,4 @@
 # Personal play history is stored beside the executable.
 score_history.txt
+# Release packages are uploaded to GitHub Releases, not stored in source history.
+zhangxuefeng_flappingbird_v*.zip
